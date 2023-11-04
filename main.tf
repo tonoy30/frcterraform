@@ -68,7 +68,7 @@ resource "aws_security_group" "frc_security_group" {
 
 resource "aws_key_pair" "frc_key_pair" {
   key_name   = "frcaws_key"
-  public_key = file("/Users/tonoy/.ssh/frcaws.pub")
+  public_key = file("~/.ssh/frcaws.pub")
 }
 
 resource "aws_instance" "frc_ec2_instance" {
@@ -77,7 +77,7 @@ resource "aws_instance" "frc_ec2_instance" {
   key_name               = aws_key_pair.frc_key_pair.id
   vpc_security_group_ids = [aws_security_group.frc_security_group.id]
   subnet_id              = aws_subnet.frc_public_subnet.id
-  user_data              = file("./userdata.tpl")
+  user_data              = file("./templates/userdata.tpl")
 
   root_block_device {
     volume_size = 10
@@ -86,8 +86,14 @@ resource "aws_instance" "frc_ec2_instance" {
   tags = {
     Name = "frc_ec2_instance_dev"
   }
+
+  provisioner "local-exec" {
+    command = templatefile("./templates/${var.host_os}-ssh-config.tpl", {
+      hostname     = self.public_ip,
+      user         = "ec2-user"
+      identityfile = "~/.ssh/frcaws"
+    })
+    interpreter = var.host_os == "unix" ? ["bash", "-c"] : ["Powershell", "-Command"]
+  }
 }
 
-output "frc_ec2_instance_ssh" {
-  value = "ssh -i ~/.ssh/frcaws ec2-user@${aws_instance.frc_ec2_instance.public_ip}"
-}
